@@ -1,13 +1,13 @@
 import matplotlib.pyplot as plt
 from scipy.signal import find_peaks, filtfilt
-from dtw import dtw, warp
 import random
 import pymatgen as mg
 from pymatgen.analysis.diffraction import xrd
-import cv2
-from cv2_rolling_ball import subtract_background_rolling_ball
+from skimage import restoration
+from scipy.ndimage import gaussian_filter1d
 from scipy import interpolate as ip
 from pymatgen.core import Structure
+from fastdtw import fastdtw
 import numpy as np
 import math
 import os
@@ -91,26 +91,68 @@ class SpectrumPlotter(object):
         ## Smooth out noise
         ys = self.smooth_spectrum(ys)
 
-        ## Map to integers in range 0 to 255 so cv2 can handle
-        ys = [val - min(ys) for val in ys]
-        ys = [255*(val/max(ys)) for val in ys]
-        ys = [int(val) for val in ys]
+        ## Normalize from 0 to 255
+        ys = np.array(ys) - min(ys)
+        ys = list(255*np.array(ys)/max(ys))
 
-        ## Perform baseline correction with cv2
-        pixels = []
-        for q in range(10):
-            pixels.append(ys)
-        pixels = np.array(pixels)
-        img, background = subtract_background_rolling_ball(pixels, 800, light_background=False,
-                                             use_paraboloid=True, do_presmooth=False)
-        yb = np.array(background[0])
-        ys = np.array(ys) - yb
+        # Subtract background
+        background = restoration.rolling_ball(ys, radius=80)
+        ys = np.array(ys) - np.array(background)
 
         ## Normalize from 0 to 100
         ys = np.array(ys) - min(ys)
         ys = list(100*np.array(ys)/max(ys))
 
         return ys
+
+    def calc_std_dev(self, two_theta, tau):
+        """
+        calculate standard deviation based on angle (two theta) and domain size (tau)
+        Args:
+            two_theta: angle in two theta space
+            tau: domain size in nm
+        Returns:
+            standard deviation for gaussian kernel
+        """
+        ## Calculate FWHM based on the Scherrer equation
+        K = 0.9 ## shape factor
+        wavelength = self.calculator.wavelength * 0.1 ## angstrom to nm
+        theta = np.radians(two_theta/2.) ## Bragg angle in radians
+        beta = (K * wavelength) / (np.cos(theta) * tau) # in radians
+
+        ## Convert FWHM to std deviation of gaussian
+        sigma = np.sqrt(1/(2*np.log(2)))*0.5*np.degrees(beta)
+        return sigma**2
+
+    def get_cont_profile(self, angles, intensities):
+
+        steps = np.linspace(self.min_angle, self.max_angle, 4501)
+        signals = np.zeros([len(angles), steps.shape[0]])
+
+        for i, ang in enumerate(angles):
+            # Map angle to closest datapoint step
+            idx = np.argmin(np.abs(ang-steps))
+            signals[i,idx] = intensities[i]
+
+        # Convolute every row with unique kernel
+        # Iterate over rows; not vectorizable, changing kernel for every row
+        domain_size = 25.0
+        step_size = (self.max_angle - self.min_angle)/4501
+        for i in range(signals.shape[0]):
+            row = signals[i,:]
+            ang = steps[np.argmax(row)]
+            std_dev = self.calc_std_dev(ang, domain_size)
+            # Gaussian kernel expects step size 1 -> adapt std_dev
+            signals[i,:] = gaussian_filter1d(row, np.sqrt(std_dev)*1/step_size,
+                                             mode='constant')
+
+        # Combine signals
+        signal = np.sum(signals, axis=0)
+
+        # Normalize signal
+        norm_signal = 100 * signal / max(signal)
+
+        return norm_signal
 
     def smooth_spectrum(self, spectrum, n=20):
         """
@@ -168,7 +210,6 @@ class SpectrumPlotter(object):
 
         return angles, intensities
 
-
     def scale_line_profile(self, angles, intensities):
         """
         Identify the scaling factor that minimizes the differences between a line
@@ -183,46 +224,28 @@ class SpectrumPlotter(object):
                 in the measured spectrum.
         """
 
-        ## Convert indices to two-theta
-        span = self.max_angle - self.min_angle
-        peak_inds = (4501./span)*(np.array(angles) - self.min_angle)
-        peak_inds = [int(i) for i in peak_inds]
-        y = []
-        qi = 0
-        for x in range(4501):
-            if x in peak_inds:
-                y.append(intensities[qi])
-                qi += 1
+        x = np.linspace(10, 80, 4501)
+        obs_y = self.formatted_spectrum
+        pred_y = self.get_cont_profile(angles, intensities)
+
+        # Map pred_y onto orig_y through DTW
+        distance, index_pairs = fastdtw(pred_y, obs_y, radius=50)
+        warped_spectrum = obs_y.copy()
+        for ind1, ind2 in index_pairs:
+            distance = abs(ind1 - ind2)
+            if distance <= 50:
+                warped_spectrum[ind2] = pred_y[ind1]
             else:
-                y.append(0.0)
+                warped_spectrum[ind2] = 0.0
+        pred_y = 100*np.array(warped_spectrum)/max(warped_spectrum)
 
-        # Get peak indices
-        orig_y = self.formatted_spectrum
-        orig_peaks = find_peaks(orig_y, height=5)[0]
-        pred_peaks = find_peaks(y, height=5)[0]
-
-        # Determine which peaks are associated with one another
-        matched_orig_peaks = []
-        matched_pred_peaks = []
-        for a in orig_peaks:
-            for b in pred_peaks:
-                if np.isclose(a, b, atol=50):
-                    matched_orig_peaks.append(a)
-                    matched_pred_peaks.append(b)
-
-        # Find scaling factor that gives best match in peak intensities
-        num_match = []
-        for scale_spectrum in np.linspace(1, 0.05, 101):
-            check = scale_spectrum*np.array(y)
-            good_peaks = 0
-            for (a, b) in zip(matched_orig_peaks, matched_pred_peaks):
-                A_magnitude = orig_y[a]
-                B_magnitude = check[b]
-                if abs((A_magnitude - B_magnitude)/A_magnitude) < 0.1:
-                    good_peaks += 1
-            num_match.append(good_peaks)
-
-        best_scale = np.linspace(1.0, 0.05, 101)[np.argmax(num_match)]
+        # Find scaling constant that minimizes MSE between pred_y and obs_y
+        all_mse = []
+        for scale_spectrum in np.linspace(1.1, 0.01, 101):
+            ydiff = obs_y - (scale_spectrum*pred_y)
+            mse = np.mean(ydiff**2)
+            all_mse.append(mse)
+        best_scale = np.linspace(1.1, 0.01, 101)[np.argmin(all_mse)]
 
         return best_scale
 
