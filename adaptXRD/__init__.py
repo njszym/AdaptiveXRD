@@ -13,7 +13,7 @@ import os
 class AdaptiveAnalysis(object):
 
     def __init__(self, spectrum_dir, spectrum_fname, reference_directory, max_phases, cutoff_intensity, wavelength, min_angle=10.0,
-        starting_max=60.0, max_angle=100.0, interval=10.0, min_conf=10.0, target_conf=80.0, cam_cutoff=25.0, temp=25, instrument='Bruker', min_window=5.0):
+        start_max=60.0, final_max=100.0, interval=10.0, min_conf=10.0, target_conf=80.0, cam_cutoff=25.0, temp=25, instrument='Bruker', min_window=5.0):
 
         # Define spectrum path
         self.spectrum_dir = spectrum_dir
@@ -30,13 +30,13 @@ class AdaptiveAnalysis(object):
         self.wavelen = wavelength
         self.min_angle = min_angle
         self.min_conf = min_conf
-        self.target_conf = target_conf
 
         # Parameters for adaptiveXRD
-        self.starting_max = starting_max
+        self.start_max = start_max
+        self.final_max = final_max
+        self.target_conf = target_conf
         self.cam_cutoff = cam_cutoff
         self.min_window = min_window
-        self.max_angle = max_angle
         self.interval = interval
         self.temp = temp
 
@@ -50,26 +50,26 @@ class AdaptiveAnalysis(object):
         finely_sampled = [] # Resampled  parts of spectrum
         all_phases, all_confs = [], [] # Ensemble of predictions, confidences
         current_interval = self.interval # May be modified later on
-        angle_bounds = np.arange(self.starting_max, self.max_angle+0.1, current_interval)
+        angle_bounds = np.arange(self.start_max, self.final_max + 0.1, current_interval)
 
         # Iteratively expand range in two-theta
         halt = False # Stopping variable
-        for spec_max_angle in angle_bounds:
+        for max_angle in angle_bounds:
 
             if halt:
                 continue
 
             # Set up model
-            model_fname = 'Models/Model_%s.h5' % int(spec_max_angle)
+            model_fname = 'Models/Model_%s.h5' % int(max_angle)
             self.model = tf.keras.models.load_model(model_fname, compile=False,
                 custom_objects={'sigmoid_cross_entropy_with_logits_v2': tf.nn.sigmoid_cross_entropy_with_logits})
             final_conv_ind = 10 # change this value if the cnn architecture is modified
             self.model.layers[final_conv_ind]._name = 'final_conv'
 
             # If this is not the first scan, then we need to sample higher two-theta
-            if spec_max_angle != self.starting_max:
-                last_max = spec_max_angle - current_interval
-                scan_succeeded = self.increase_range(self.spectrum_fname, last_max, spec_max_angle)
+            if max_angle != self.start_max:
+                last_max = max_angle - current_interval
+                scan_succeeded = self.increase_range(self.spectrum_fname, last_max, max_angle)
                 if scan_succeeded:
                     current_interval = self.interval
                 else:
@@ -85,13 +85,13 @@ class AdaptiveAnalysis(object):
             xrd = np.loadtxt(self.spectrum_path)
             x = xrd[:, 0]
             actual_max = max(x)
-            if actual_max < spec_max_angle:
+            if actual_max < max_angle:
                 halt = True
                 continue
 
             # Perform phase ID and check for backup phases
             spectrum_names, predicted_phases, confidences, backup_phases = spectrum_analysis.main(self.spectrum_dir, self.ref_dir,
-                 self.max_phases, self.cutoff, self.min_conf, self.wavelen, self.min_angle, spec_max_angle, parallel=False, model_path=model_fname)
+                 self.max_phases, self.cutoff, self.min_conf, self.wavelen, self.min_angle, max_angle, parallel=False, model_path=model_fname)
             cmpds, probs, backups = predicted_phases[0], confidences[0], backup_phases[0]
 
             # Add current predictions to ensemble
@@ -107,21 +107,21 @@ class AdaptiveAnalysis(object):
                 continue
 
             uncert_x = []
-            x = np.linspace(self.min_angle, spec_max_angle, 4501)
+            x = np.linspace(self.min_angle, max_angle, 4501)
 
             # Re-sample based on phases with low confidence
             for (cmpd, prob, backup) in zip(cmpds, probs, backups):
                 if (prob < self.target_conf) and (backup != None):
                     # First suspected phase
-                    ph1_spec = generate_pattern(self.ref_dir, cmpd, spec_max_angle)
+                    ph1_spec = generate_pattern(self.ref_dir, cmpd, max_angle)
                     ph1_cam = gradcam_heatmap(ph1_spec, self.model, 'final_conv')
                     # Second suspected phase
-                    ph2_spec = generate_pattern(self.ref_dir, backup, spec_max_angle)
+                    ph2_spec = generate_pattern(self.ref_dir, backup, max_angle)
                     ph2_cam = gradcam_heatmap(ph2_spec, self.model, 'final_conv')
                     # CAM difference between suspected phases
                     cam_diff = abs(np.array(ph1_cam) - np.array(ph2_cam))
                     # Identify two-theta where CAM difference exceed cutoff; these will be re-sampled to clarify
-                    uncert_bounds = self.get_mismatch_range(cam_diff, bounds=(10, spec_max_angle), diff_cutoff=self.cam_cutoff)
+                    uncert_bounds = self.get_mismatch_range(cam_diff, bounds=(10, max_angle), diff_cutoff=self.cam_cutoff)
                     for xrange in uncert_bounds:
                         uncert_x += list(np.arange(min(xrange), max(xrange), 0.1))
             uncert_x = sorted(list(set(uncert_x)))
@@ -139,7 +139,7 @@ class AdaptiveAnalysis(object):
 
             # Perform phase ID and check for backup phases
             spectrum_names, predicted_phases, confidences, backup_phases = spectrum_analysis.main(self.spectrum_dir, self.ref_dir,
-                 self.max_phases, self.cutoff, self.min_conf, self.wavelen, self.min_angle, spec_max_angle, parallel=False, model_path=model_fname)
+                 self.max_phases, self.cutoff, self.min_conf, self.wavelen, self.min_angle, max_angle, parallel=False, model_path=model_fname)
             cmpds, probs, backups = predicted_phases[0], confidences[0], backup_phases[0]
 
             # Add current predictions to ensemble
@@ -297,9 +297,7 @@ class AdaptiveAnalysis(object):
 
     def splice_spectra(self, x_main, y_main, x_new, y_new):
         """
-        Splice two sets of spectra together. Note that intensities are not necessarily
-        continuous and smooth if count time changes between scans; hence, normalization
-        will likely be necessary in experiment.
+        Splice two sets of spectra together.
 
         Args:
             x_main, y_main: intial spectrum spanning full two-theta range

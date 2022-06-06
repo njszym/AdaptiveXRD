@@ -12,13 +12,15 @@ if __name__ == '__main__':
     max_strain = 0.03 # default: up to +/- 3% strain
     max_shift = 0.5 # default: up to +/- 0.5 degrees shift in two-theta
     num_spectra = 50 # Number of spectra to simulate per phase
-    starting_max = 60 # Starting range (10-60 degrees)
-    min_angle, max_angle = 10.0, 100.0
+    min_angle = 10.0 # Lower bound on scan range (two-theta)
+    start_max = 60.0 # Upper bound on initial range (10-60 degrees is a good starting point)
+    final_max = 140.0 # Upper bound on final range (highest possible two-theta)
     interval = 10.0 # How much to increase two-theta range by each iteration
-    num_epochs = 2
-    separate = True
-    skip_filter = False
-    include_elems = True
+    num_epochs = 2 # How many epochs to train the CNN for
+    separate = True # Each artifact is applied separately
+    skip_filter = False # Set to True if References folder already exists
+    include_elems = True # May set to False if you don't want to include elemental phases
+
     for arg in sys.argv:
         if '--max_texture' in arg:
             max_texture = float(arg.split('=')[1])
@@ -34,10 +36,10 @@ if __name__ == '__main__':
             num_spectra = int(arg.split('=')[1])
         if '--min_angle' in arg:
             min_angle = float(arg.split('=')[1])
-        if '--starting_max' in arg:
-            starting_max = float(arg.split('=')[1])
-        if '--max_angle' in arg:
-            max_angle = float(arg.split('=')[1])
+        if '--start_max' in arg:
+            start_max = float(arg.split('=')[1])
+        if '--final_max' in arg:
+            final_max = float(arg.split('=')[1])
         if '--interval' in arg:
             interval = float(arg.split('=')[1])
         if '--num_epochs' in arg:
@@ -66,7 +68,7 @@ if __name__ == '__main__':
         os.mkdir('Models')
 
     # Create separate model for each range of two-theta
-    upper_bounds = np.arange(starting_max, max_angle + 1, interval)
+    upper_bounds = np.arange(start_max, final_max + 1, interval)
     upper_bounds = [int(val) for val in upper_bounds]
     for maximum in upper_bounds:
 
