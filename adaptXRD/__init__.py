@@ -132,7 +132,7 @@ class AdaptiveAnalysis(object):
 
             # Re-sample any regions in two-theta where CAM difference is high
             if len(np.array(uncert_x).flatten()) > 0:
-                self.resample(filename, uncert_x)
+                self.resample(self.spectrum_fname, uncert_x)
 
             # Keep track of xranges that have already been sampled with high precision
             finely_sampled += uncert_x
