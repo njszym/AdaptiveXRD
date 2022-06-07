@@ -41,4 +41,15 @@ By specifying these values during during training, several models will be create
 
 All trained models will be placed inside a folder called ```Models```. Their maximum angles will be specified in the filenames (e.g., ```Model_80.h5```).
 
+## Performing measurements and analysis
+
+Once a set of models are trained, they can be used to guide XRD scans and perform phase identification on the resulting patterns. This can be accomplished with the ```scan_and_ID``` script. For example:
+
+```
+python scan_and_ID.py --min_angle=10.0 --start_max=60.0 --final_max=140.0 --interval=10.0 --target_conf=80.0 --cam_cutoff=25.0 --min_window=5.0
+```
+
+The first few variables should match the values used during training. These dictate how the range 2θ will be expanded during the measurement.
+
+The later variables control resampling of 2θ within each range. ```target_conf``` represents the desired prediction confidence for each phase identified by [XRD-AutoAnalyzer](https://github.com/njszym/XRD-AutoAnalyzer). In cases where the prediction confidence falls below this value, additional measurements will be performed. ```cam_cutoff``` controls how much 2θ is scanned during each resampling iteration. A lower cutoff will lead to more resampling (and therefore a longer measurement time), whereas a higher cutoff leads to less resamlping (shorter scan time). A cutoff of 25% generally leads to a good balance between speed and accuracy. Last, ```min_window``` defines the smallest range of 2θ that will be resampled. Generally, windows less than 5 degrees are inefficient as some time is required to set up the measurement, and such a small range will yield limited information.
 
