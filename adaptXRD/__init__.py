@@ -111,7 +111,7 @@ class AdaptiveAnalysis(object):
 
             # Re-sample based on phases with low confidence
             for (cmpd, prob, backup) in zip(cmpds, probs, backups):
-                if (prob < self.target_conf) and (backup != None):
+                if (prob < self.target_conf) and (backup not in [None, 'None']):
                     # First suspected phase
                     ph1_spec = generate_pattern(self.ref_dir, cmpd, max_angle)
                     ph1_cam = gradcam_heatmap(ph1_spec, self.model, 'final_conv')
