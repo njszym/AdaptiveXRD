@@ -63,3 +63,7 @@ Once the measurement and analysis are complete, an output will appear:
 Predicted phases: (phase_1 + phase_2 + ...)
 Confidence: (probabilities associated with the phases above)
 ```
+
+And the measured spectrum can bound found in the ```Spectra``` folder.
+
+To perfrom further analysis of this spectrum post hoc, the [XRD-AutoAnalyzer](https://github.com/njszym/XRD-AutoAnalyzer) can be used.
