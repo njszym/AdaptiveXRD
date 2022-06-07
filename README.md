@@ -51,5 +51,17 @@ python scan_and_ID.py --min_angle=10.0 --start_max=60.0 --final_max=140.0 --inte
 
 The first few variables should match the values used during training. These dictate how the range 2θ will be expanded during the measurement.
 
-The later variables control resampling of 2θ within each range. ```target_conf``` represents the desired prediction confidence for each phase identified by [XRD-AutoAnalyzer](https://github.com/njszym/XRD-AutoAnalyzer). In cases where the prediction confidence falls below this value, additional measurements will be performed. ```cam_cutoff``` controls how much 2θ is scanned during each resampling iteration. A lower cutoff will lead to more resampling (and therefore a longer measurement time), whereas a higher cutoff leads to less resamlping (shorter scan time). A cutoff of 25% generally leads to a good balance between speed and accuracy. Last, ```min_window``` defines the smallest range of 2θ that will be resampled. Generally, windows less than 5 degrees are inefficient as some time is required to set up the measurement, and such a small range will yield limited information.
+The later variables control resampling of 2θ within each range.
 
+```target_conf``` represents the desired prediction confidence for each phase identified by [XRD-AutoAnalyzer](https://github.com/njszym/XRD-AutoAnalyzer). In cases where the prediction confidence falls below this value, additional measurements will be performed.
+
+```cam_cutoff``` controls how much 2θ is scanned during each resampling iteration. A lower cutoff will lead to more resampling (and therefore a longer measurement time), whereas a higher cutoff leads to less resamlping (shorter scan time). A cutoff of 25% generally leads to a good balance between speed and accuracy.
+
+```min_window``` defines the smallest range of 2θ that will be resampled. Generally, windows less than 5 degrees are inefficient as some time is required to set up the measurement, and such a small range will yield limited information.
+
+Once the measurement and analysis are complete, an output will appear:
+
+```
+Predicted phases: (phase_1 + phase_2 + ...)
+Confidence: (probabilities associated with the phases above)
+```
