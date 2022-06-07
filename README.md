@@ -44,10 +44,12 @@ All trained models will be placed inside a folder called ```Models```. Their max
 Once a set of models are trained, they can be used to guide XRD scans and perform phase identification on the resulting patterns. This can be accomplished with the ```scan_and_ID``` script. For example:
 
 ```
-python scan_and_ID.py --min_angle=10.0 --start_max=60.0 --final_max=140.0 --interval=10.0 --target_conf=80.0 --cam_cutoff=25.0 --min_window=5.0
+python scan_and_ID.py --min_angle=10.0 --start_max=60.0 --final_max=140.0 --interval=10.0 --instrument='Aeris' --target_conf=80.0 --cam_cutoff=25.0 --min_window=5.0
 ```
 
 The first few variables should match the values used during training. These dictate how the range 2θ will be expanded during the measurement.
+
+The ```instrument``` variables is used to specify which diffractometer will be used. This is important as each instrument must be interfaced with in a unique way. Further details on this are given in the next section.
 
 The later variables control resampling of 2θ within each range.
 
@@ -67,3 +69,33 @@ Confidence: (probabilities associated with the phases above)
 And the measured spectrum can bound found in the ```Spectra``` folder.
 
 To perfrom further analysis of this spectrum post hoc, the [XRD-AutoAnalyzer](https://github.com/njszym/XRD-AutoAnalyzer) can be used.
+
+## Choice of diffractometer
+
+As mentioned in the previous section, the diffractometer should be specified at runtime using the ```--instrument``` flag. This will tell adaptiveXRD how to interface with the diffractometer (see ```adaptXRD/oracle/__init__.py```).
+
+Currently, this package supports three instrument types, described below.
+
+### Aeris
+
+Specifying ```--instrument="Aeris"``` enables an interface with a [Panalytical Aeris diffractometer](https://www.malvernpanalytical.com/en/products/product-range/aeris-range).
+
+Communication is performed via TCP commands over an ethernet connection. Details regarding the Aeris communication system can be found in ```adaptXRD/AerisAI```. The IP address and results directory should be changed to reflect the user's setup.
+
+### Bruker
+
+Specifying ```--instrument="Bruker"``` enables an interface with a [Bruker D8 Advance diffractometer](https://www.bruker.com/en/products-and-solutions/diffractometers-and-scattering-systems/x-ray-diffractometers/d8-advance-family/d8-advance.html).
+
+Communication is performed through a file handoff system, where input files with scan parameters are placed in a folder that is constantly monitored by the Bruker LabLims software. Experiment files (```.bsml```) and scan scripts (```.cs```) should be created by the user beforehand. The location of the job file should also be set before running any measurements on a new system. All information can be specified in the ```adaptXRD/oracle/__init__.py``` file.
+
+### Post Hoc
+
+Specifying ```--instrument="Post Hoc"``` enables interpolation of low- and high-precision spectra that are created beforehand. This is mostly used for testing purposes, as it represents a simulation of experimental sampling.
+
+When using this flag, patterns with low and high resolution should be placed in folders named ```Low``` and ```High``` respectively.
+
+Each filename should also be specified at runtime by using the ```--existing_file=FILENAME``` flag. As with other methods, the resulting spectrum will be placed in the ```Spectra``` folder.
+
+### Additional diffractometers
+
+AdaptiveXRD can be readily applied to new instrumentation, so long as an interface is accessible. In such cases, the ```adaptXRD/oracle/__init__.py``` should be modified accordingly.
