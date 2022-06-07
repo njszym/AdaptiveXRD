@@ -32,5 +32,13 @@ python construct_models.py --min_angle=10.0 --start_max=60.0 --final_max=140.0 -
 
 Where ```start_max``` represents the upper bound on the first range of 2θ that will be sampled by the diffractometer. In cases where additional measurements are suggested, the scan range will be expanded by the amount specified (```interval```). This process continues until ```final_max``` is reached. Keep in mind that the maximum angle specified should be compatible with the diffractometer being used. For most instruments, 140 degrees represent an upper bound.
 
-By specifying these values during during training, several models will be created to represent each possible range of 2θ (e.g., from ```min_angle``` to ```start_max```, from ```min_angle``` to ```start_max``` + ```interval```, and so on...until ```final_max``` is reached). 
+By specifying these values during during training, several models will be created to represent each possible range of 2θ. For example:
+
+* Model 1: trained on 2θ = [```min_angle```, ```start_max```]
+* Model 2: trained on 2θ = [```min_angle```, ```start_max``` + ```interval```]
+* Model 3: trained on 2θ = [```min_angle```, ```start_max``` + 2×```interval```]
+* And so on...Until ```final_max``` is reached.
+
+All trained models will be placed inside a folder called ```Models```. Their maximum angles will be specified in the filenames (e.g., ```Model_80.h5```).
+
 
