@@ -1,6 +1,6 @@
 # Adaptive XRD
 
-A packaged designed to integrate automated phase identification ([XRD-AutoAnalyzer](https://github.com/njszym/XRD-AutoAnalyzer)) with in-line guidance of XRD measurements.
+A packaged designed to integrate automated phase identification with in-line guidance of XRD measurements.
 
 All simulated and experimental data used for testing can be found in [Figshare](https://figshare.com/s/71f552f43f0d982f888d).
 
