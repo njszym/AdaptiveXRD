@@ -7,7 +7,7 @@ import os
 
 class Aeris:
 
-    def __init__(self, ip='128.3.19.238', port=702, results_dir='/Users/Cederexp/Documents/SharedFolder', working_dir='./Results'):
+    def __init__(self, ip='10.0.0.188', port=702, results_dir='/Users/Cederexp/Documents/SharedFolder', working_dir='./Results'):
         self.ip = ip
         self.port = port
         self.results_dir = results_dir

@@ -1,5 +1,6 @@
 from adaptXRD.AerisAI import Aeris, write_spectrum
 import numpy as np
+import random
 import time
 import os
 

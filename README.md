@@ -6,19 +6,19 @@ All simulated and experimental data used for testing can be found in [Figshare](
 
 ## Installation
 
-First clone the repository:
+First, go to [XRD-AutoAnalyzer](https://github.com/njszym/XRD-AutoAnalyzer) and follow the instructions for installation.
+
+Then, clone the current repository:
 
 ```
-git clone https://github.com/njszym/XRD-AutoAnalyzer.git
+git clone https://github.com/njszym/AdaptiveXRD.git
 ```
 
-Then, to install all required modules, navigate to the cloned directory and execute:
+Navigate to the cloned directory and execute:
 
 ```
 pip install . --user
 ```
-
-Tensorflow version 2.5 is currently required. Later versions lead to overconfident models. We plan to resolve this in future updates.
 
 ## Training new models
 
