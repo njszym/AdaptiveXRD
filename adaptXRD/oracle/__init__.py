@@ -148,8 +148,13 @@ class Diffractometer:
             aeris = Aeris()
 
             # Carry out scan and load spectrum
-            aeris.scan(loc, sample_id, program)
-            x, y = aeris.load_xrdml(sample_id)
+            success = aeris.scan(loc, sample_id, program)
+
+            if success:
+                x, y = aeris.load_xrdml(sample_id)
+
+            else:
+                assert False, 'Something went wrong with Aeris scan'
 
             return x, y
 

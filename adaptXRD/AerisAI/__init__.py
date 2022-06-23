@@ -33,7 +33,9 @@ class Aeris:
             mssg = bytes("@SAMPLE@ADD@SAMPLE_ID=%s@APPLICATION=%s@AT=0,%s@MEASURE=yes@END" % (sample_id, program, loc), encoding="utf-8")
             s.sendall(mssg)
             data = s.recv(1024)
-            print(repr(data))
+            mssg = repr(data)
+            if 'fatal' in mssg:
+                return False
             time.sleep(5)
             filename = '%s.xrdml' % sample_id
             while filename not in os.listdir(self.results_dir):
@@ -42,9 +44,8 @@ class Aeris:
             target = os.path.join(self.working_dir, filename)
             os.rename(source, target)
         time.sleep(5)
-        print('Remove sample')
         self.remove(sample_id)
-        print('Sample removed')
+        return True
 
     # Necessary after each scan
     def remove(self, sample_id):
