@@ -43,11 +43,18 @@ class Diffractometer:
 
             # Step size set by precision
             if prec == 'High':
-                step_size = 0.02 # deg
-                time_per_step = 0.2 # sec
+                step_size = 0.0125 # deg
+                time_per_step = 0.15 # sec
             if prec == 'Low':
-                step_size = 0.04 # deg
-                time_per_step = 0.02 # sec
+                step_size = 0.025 # deg
+                time_per_step = 0.075 # sec
+
+            # Expected measurement time
+            expec_time = time_per_step*(max_angle - min_angle)/step_size
+
+            # Allow some tolerance before calling timeout
+            # e.g., it may take some time reach the measurement temperature
+            tolerance = 600 # by default, allow 10 minutes
 
             # Write to params file; will be read by LabLims job file
             with open('ScanParams.txt', 'w+') as f:
@@ -67,9 +74,9 @@ class Diffractometer:
                 f.write('</MeasurementJob>\n')
 
             # Wait until results file is detected
-            done, repeat = False, False
+            done, failed = False, False
             start_time = time.time()
-            timeout = 600.0
+            timeout = expec_time + tolerance
             while not done:
                 time.sleep(5) # Check folder once every 5 seconds
                 result_files = os.listdir(self.results_dir)
@@ -79,25 +86,11 @@ class Diffractometer:
                     done = True
                 elapsed_time = time.time() - start_time
                 if elapsed_time > timeout:
-                    done, repeat = True, True
-
-            # If measurement failed, try to repeat once
-            if repeat:
-                done, repeat = False, False
-                start_time = time.time()
-                while not done:
-                    time.sleep(5) # Check folder once every 5 seconds
-                    result_files = os.listdir('Results')
-                    if len(result_files) > 0:
-                        assert len(result_files) == 1, 'Too many result files'
-                        fname = result_files[0]
-                        done = True
-                    elapsed_time = time.time() - start_time
-                    if elapsed_time > timeout:
-                        done, repeat = True, True
+                    done, failed = True, True
 
             # If measurement still failed, abort scan
-            if repeat:
+            if failed:
+                print('Measurement failed. No results file detected.')
                 return [None], [None]
 
             # If scan was successful: load xy values
