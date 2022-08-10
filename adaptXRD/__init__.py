@@ -10,6 +10,25 @@ import warnings
 import os
 
 
+# Used to apply dropout during training *and* inference
+class CustomDropout(tf.keras.layers.Layer):
+
+    def __init__(self, rate, **kwargs):
+        super(CustomDropout, self).__init__(**kwargs)
+        self.rate = rate
+
+    def get_config(self):
+        config = super().get_config()
+        config.update({
+            "rate": self.rate
+        })
+        return config
+
+    # Always apply dropout
+    def call(self, inputs, training=None):
+        return tf.nn.dropout(inputs, rate=self.rate)
+
+
 class AdaptiveAnalysis(object):
 
     def __init__(self, spectrum_dir, spectrum_fname, reference_directory, max_phases, cutoff_intensity, wavelength, min_angle=10.0,
@@ -48,7 +67,7 @@ class AdaptiveAnalysis(object):
 
         # Initialize adaptiveXRD variables
         finely_sampled = [] # Resampled  parts of spectrum
-        all_phases, all_confs = [], [] # Ensemble of predictions, confidences
+        all_phases, all_confs, all_heights = [], [], [] # Ensemble of predictions, confidences, scale factors
         current_interval = self.interval # May be modified later on
         angle_bounds = np.arange(self.start_max, self.final_max + 0.1, current_interval)
 
@@ -61,8 +80,7 @@ class AdaptiveAnalysis(object):
 
             # Set up model
             model_fname = 'Models/Model_%s.h5' % int(max_angle)
-            self.model = tf.keras.models.load_model(model_fname, compile=False,
-                custom_objects={'sigmoid_cross_entropy_with_logits_v2': tf.nn.sigmoid_cross_entropy_with_logits})
+            self.model = tf.keras.models.load_model(model_fname, custom_objects={'CustomDropout': CustomDropout}, compile=False)
             final_conv_ind = 10 # change this value if the cnn architecture is modified
             self.model.layers[final_conv_ind]._name = 'final_conv'
 
@@ -90,16 +108,17 @@ class AdaptiveAnalysis(object):
                 continue
 
             # Perform phase ID and check for backup phases
-            spectrum_names, predicted_phases, confidences, backup_phases = spectrum_analysis.main(self.spectrum_dir, self.ref_dir,
+            spectrum_names, predicted_phases, confidences, backup_phases, scale_factors = spectrum_analysis.main(self.spectrum_dir, self.ref_dir,
                  self.max_phases, self.cutoff, self.min_conf, self.wavelen, self.min_angle, max_angle, parallel=False, model_path=model_fname)
-            cmpds, probs, backups = predicted_phases[0], confidences[0], backup_phases[0]
+            cmpds, probs, backups, heights = predicted_phases[0], confidences[0], backup_phases[0], scale_factors[0]
 
             # Add current predictions to ensemble
             all_phases += cmpds.copy()
             all_confs += probs.copy()
+            all_heights += heights.copy()
 
             # Calculate ensemble averaged predictions
-            ensemble_phases, ensemble_confs = self.merge_predictions(all_phases, all_confs)
+            ensemble_phases, ensemble_confs, ensemble_heights = self.merge_predictions(all_phases, all_confs, all_heights)
 
             # If all confidences exceed cutoff, don't sample higher angles
             if min(ensemble_confs) > self.target_conf:
@@ -138,58 +157,62 @@ class AdaptiveAnalysis(object):
             finely_sampled += uncert_x
 
             # Perform phase ID and check for backup phases
-            spectrum_names, predicted_phases, confidences, backup_phases = spectrum_analysis.main(self.spectrum_dir, self.ref_dir,
+            spectrum_names, predicted_phases, confidences, backup_phases, scale_factors = spectrum_analysis.main(self.spectrum_dir, self.ref_dir,
                  self.max_phases, self.cutoff, self.min_conf, self.wavelen, self.min_angle, max_angle, parallel=False, model_path=model_fname)
-            cmpds, probs, backups = predicted_phases[0], confidences[0], backup_phases[0]
+            cmpds, probs, backups, heights = predicted_phases[0], confidences[0], backup_phases[0], scale_factors[0]
 
             # Add current predictions to ensemble
             all_phases += cmpds.copy()
             all_confs += probs.copy()
+            all_heights += heights.copy()
 
-            # Calculate ensemble prediction
-            ensemble_phases, ensemble_confs = self.merge_predictions(all_phases, all_confs)
+            # Calculate ensemble averaged predictions
+            ensemble_phases, ensemble_confs, ensemble_heights = self.merge_predictions(all_phases, all_confs, all_heights)
 
             # If the minimum confidence is high, don't sample higher angles
             if len(ensemble_confs) > 0:
                 if min(ensemble_confs) > self.target_conf:
                     halt = True
 
-        # Round off confidence values (two decimal points)
+        # Round off confidence and height values (two decimal points)
         ensemble_confs = [round(v, 2) for v in ensemble_confs]
+        ensemble_heights = [round(v, 2) for v in ensemble_heights]
 
-        return ensemble_phases, ensemble_confs
+        return ensemble_phases, ensemble_confs, ensemble_heights
 
-    def merge_predictions(self, preds, confs):
+    def merge_predictions(self, preds, confs, heights):
         """
         Aggregate predictions through an ensemble approach
         whereby each phase is weighted by its confidence.
         """
 
         avg_soln = {}
-        for cmpd, cf in zip(preds, confs):
+        for cmpd, cf, ht in zip(preds, confs, heights):
             if cmpd not in avg_soln.keys():
-                avg_soln[cmpd] = [cf]
+                avg_soln[cmpd] = [(cf, ht)]
             else:
-                avg_soln[cmpd].append(cf)
+                avg_soln[cmpd].append((cf, ht))
 
-        unique_preds, avg_confs = [], []
+        unique_preds, avg_confs, avg_heights = [], [], []
         for cmpd in avg_soln.keys():
             unique_preds.append(cmpd)
             num_zeros = 2 - len(avg_soln[cmpd])
-            avg_soln[cmpd] += [0.0]*num_zeros
-            avg_confs.append(np.mean(avg_soln[cmpd]))
+            avg_soln[cmpd] += [(0.0, 0.0)]*num_zeros
+            avg_confs.append(np.mean([pair[0] for pair in avg_soln[cmpd]]))
+            avg_heights.append(np.mean([pair[1] for pair in avg_soln[cmpd]]))
 
-        info = zip(unique_preds, avg_confs)
+        info = zip(unique_preds, avg_confs, avg_heights)
         info = sorted(info, key=lambda x: x[1])
         info.reverse()
 
-        unique_cmpds, unique_confs = [], []
-        for cmpd, cf in info:
+        unique_cmpds, unique_confs, unique_heights = [], [], []
+        for cmpd, cf, ht in info:
             if (len(unique_cmpds) < self.max_phases) and (cf > self.min_conf):
                 unique_cmpds.append(cmpd)
                 unique_confs.append(cf)
+                unique_heights.append(ht)
 
-        return unique_cmpds, unique_confs
+        return unique_cmpds, unique_confs, unique_heights
 
     def get_unique_ranges(self, known_ranges, proposed_ranges, merge):
 

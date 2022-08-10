@@ -11,13 +11,14 @@ if __name__ == '__main__':
     min_domain_size, max_domain_size = 5.0, 30.0 # default: domain sizes ranging from 5 to 30 nm
     max_strain = 0.03 # default: up to +/- 3% strain
     max_shift = 0.5 # default: up to +/- 0.5 degrees shift in two-theta
+    impur_amt = 70.0 # Max amount of impurity phases to include (%)
     num_spectra = 50 # Number of spectra to simulate per phase
     min_angle = 10.0 # Lower bound on scan range (two-theta)
     start_max = 60.0 # Upper bound on initial range (10-60 degrees is a good starting point)
     final_max = 140.0 # Upper bound on final range (highest possible two-theta)
     interval = 10.0 # How much to increase two-theta range by each iteration
-    num_epochs = 2 # How many epochs to train the CNN for
-    separate = True # Each artifact is applied separately
+    num_epochs = 50 # How many epochs to train the CNN for
+    separate = False # If False: apply all artifacts simultaneously
     skip_filter = False # Set to True if References folder already exists
     include_elems = True # May set to False if you don't want to include elemental phases
 
@@ -32,6 +33,8 @@ if __name__ == '__main__':
             max_strain = float(arg.split('=')[1])
         if '--max_shift' in arg:
             max_shift = float(arg.split('=')[1])
+        if '--impur_amt' in arg:
+            impur_amt = float(arg.split('=')[1])
         if '--num_spectra' in arg:
             num_spectra = int(arg.split('=')[1])
         if '--min_angle' in arg:
@@ -73,7 +76,7 @@ if __name__ == '__main__':
     for maximum in upper_bounds:
 
         # Simulate augmented XRD spectra
-        xrd_obj = spectrum_generation.SpectraGenerator('References', num_spectra, max_texture, min_domain_size, max_domain_size, max_strain, max_shift, min_angle, maximum, separate)
+        xrd_obj = spectrum_generation.SpectraGenerator('References', num_spectra, max_texture, min_domain_size, max_domain_size, max_strain, max_shift, impur_amt, min_angle, maximum, separate)
         xrd_specs = xrd_obj.augmented_spectra
 
         # Train, test, and save each CNN

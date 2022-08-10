@@ -1,5 +1,6 @@
 from autoXRD import visualizer, quantifier
 from adaptXRD import oracle
+import numpy as np
 import adaptXRD
 import sys
 import os
@@ -73,49 +74,51 @@ if __name__ == '__main__':
     spec_dir, ref_dir = 'Spectra', 'References'
     adaptive_analyzer = adaptXRD.AdaptiveAnalysis(spec_dir, spectrum_fname, ref_dir, max_phases, cutoff_intensity, wavelength, min_angle,
         start_max, final_max, interval, min_conf, target_conf, cam_cutoff, temp, instrument, min_window)
-    phases, confidences = adaptive_analyzer.main
+    phases, confidences, scale_factors = adaptive_analyzer.main
+
+    # Load final angle
+    xrd = np.loadtxt('Spectra/%s' % spectrum_fname)
+    x = xrd[:, 0]
+    measured_max = max(x)
 
     if temp != 25:
         print('Temperature: %s C' % temp)
 
-    if '--all' not in sys.argv:
-
-        # By default: only include phases with a confidence > 25%
-        certain_phases, certain_confidences = [], []
-        for (ph, cf) in zip(phases, confidences):
+    if '--all' not in sys.argv: # By default: only include phases with a confidence > 25%
+        final_phases, final_confidence, final_heights = [], [], []
+        for (ph, cf, ht) in zip(phases, confidences, scale_factors):
             if cf >= 25.0:
-                certain_phases.append(ph)
-                certain_confidences.append(cf)
+                final_phases.append(ph)
+                final_confidence.append(cf)
+                final_heights.append(ht)
 
-        print('Predicted phases: %s' % certain_phases)
-        print('Confidence: %s' % certain_confidences)
+        print('Predicted phases: %s' % final_phases)
+        print('Confidence: %s' % final_confidence)
 
     else: # If --all is specified, print *all* suspected phases
+        final_phases = phases.copy()
+        final_heights = scale_factors.copy()
+        print('Predicted phases: %s' % phase_set)
+        print('Confidence: %s' % confidence)
 
-        print('Predicted phases: %s' % phases)
-        print('Confidence: %s' % confidences)
+    if ('--plot' in sys.argv) and (phases != 'None'):
 
-    if ('--plot' in sys.argv) and (phase_set != 'None'):
+        save = False
+        if '--save' in sys.argv:
+            save = True
 
         # Format predicted phases into a list of their CIF filenames
-        if '--all' not in sys.argv:
-            final_phasenames = ['%s.cif' % phase for phase in certain_phases]
-        else:
-            final_phasenames = ['%s.cif' % phase for phase in phases]
+        final_phasenames = ['%s.cif' % phase for phase in final_phases]
 
         # Plot measured spectrum with line profiles of predicted phases
-        visualizer.main('Spectra', spectrum_fname, final_phasenames, min_angle, max_angle, wavelength)
+        visualizer.main('Spectra', spectrum_fname, final_phasenames, final_heights, min_angle, measured_max, wavelength, save)
 
-    if ('--weights' in sys.argv) and (phase_set != 'None'):
+    if ('--weights' in sys.argv) and (phases != 'None'):
 
         # Format predicted phases into a list of their CIF filenames
-        if '--all' not in sys.argv:
-            final_phasenames = ['%s.cif' % phase for phase in certain_phases]
-        else:
-            final_phasenames = ['%s.cif' % phase for phase in phases]
+        final_phasenames = ['%s.cif' % phase for phase in final_phases]
 
         # Get weight fractions
-        weights = quantifier.main('Spectra', spectrum_fname, final_phasenames, min_angle, max_angle, wavelength)
+        weights = quantifier.main('Spectra', spectrum_fname, final_phasenames, final_heights, min_angle, measured_max, wavelength)
+        weights = [round(val, 2) for val in weights]
         print('Weight fractions: %s' % weights)
-
-
