@@ -7,13 +7,13 @@ import pymatgen as mg
 
 if __name__ == '__main__':
 
-    max_texture = 0.5 # default: texture associated with up to +/- 50% changes in peak intensities
-    min_domain_size, max_domain_size = 5.0, 30.0 # default: domain sizes ranging from 5 to 30 nm
-    max_strain = 0.03 # default: up to +/- 3% strain
-    max_shift = 0.5 # default: up to +/- 0.5 degrees shift in two-theta
-    impur_amt = 70.0 # Max amount of impurity phases to include (%)
-    num_spectra = 50 # Number of spectra to simulate per phase
-    min_angle = 10.0 # Lower bound on scan range (two-theta)
+    max_texture = 0.5 # Texture associated with up to +/- 50% changes in peak intensities
+    min_domain_size, max_domain_size = 5.0, 30.0 # Domain sizes ranging from 5 to 30 nm
+    max_strain = 0.03 # Up to +/- 3% strain in lattice params
+    max_shift = 0.5 # Up to +/- 0.5 degrees shift in two-theta
+    impur_amt = 70.0 # Include impurity peaks up to 70%
+    num_spectra = 50 # 50 spectra simulated per phase
+    min_angle = 10.0 # Lower bound on scan range (two-theta, degrees)
     start_max = 60.0 # Upper bound on initial range (10-60 degrees is a good starting point)
     final_max = 140.0 # Upper bound on final range (highest possible two-theta)
     interval = 10.0 # How much to increase two-theta range by each iteration

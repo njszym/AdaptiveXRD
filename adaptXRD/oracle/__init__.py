@@ -13,7 +13,7 @@ class Diffractometer:
 
         # You may add your own instrument here
         known_instruments = ['Bruker', 'Aeris', 'Post Hoc']
-        assert self.instrument_name in known_instruments, 'Instrument is not knonwn'
+        assert self.instrument_name in known_instruments, 'Instrument is not known'
 
     def execute_scan(self, min_angle, max_angle, prec, temp, spec_fname=None):
 
@@ -43,11 +43,11 @@ class Diffractometer:
 
             # Step size set by precision
             if prec == 'High':
-                step_size = 0.0125 # deg
-                time_per_step = 0.15 # sec
+                step_size = 0.01 # deg
+                time_per_step = 0.2 # sec
             if prec == 'Low':
-                step_size = 0.025 # deg
-                time_per_step = 0.075 # sec
+                step_size = 0.02 # deg
+                time_per_step = 0.1 # sec
 
             # Expected measurement time
             expec_time = time_per_step*(max_angle - min_angle)/step_size

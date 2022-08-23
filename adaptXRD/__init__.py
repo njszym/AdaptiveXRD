@@ -10,8 +10,11 @@ import warnings
 import os
 
 
-# Used to apply dropout during training *and* inference
 class CustomDropout(tf.keras.layers.Layer):
+    """
+    Custom layer used to apply dropout in the CNN
+    during training and inference.
+    """
 
     def __init__(self, rate, **kwargs):
         super(CustomDropout, self).__init__(**kwargs)
@@ -30,9 +33,15 @@ class CustomDropout(tf.keras.layers.Layer):
 
 
 class AdaptiveAnalysis(object):
+    """
+    Main class used to run adaptive measurements
+    and perform phase identification.
+    """
 
-    def __init__(self, spectrum_dir, spectrum_fname, reference_directory, max_phases, cutoff_intensity, wavelength, min_angle=10.0,
-        start_max=60.0, final_max=100.0, interval=10.0, min_conf=10.0, target_conf=80.0, cam_cutoff=25.0, temp=25, instrument='Bruker', min_window=5.0):
+    def __init__(self, spectrum_dir, spectrum_fname, reference_directory, max_phases,
+        cutoff_intensity, wavelength, min_angle=10.0, start_max=60.0, final_max=100.0,
+        interval=10.0, min_conf=10.0, target_conf=80.0, cam_cutoff=25.0, temp=25,
+        instrument='Bruker', min_window=5.0):
 
         # Define spectrum path
         self.spectrum_dir = spectrum_dir
@@ -66,25 +75,26 @@ class AdaptiveAnalysis(object):
     def main(self):
 
         # Initialize adaptiveXRD variables
-        finely_sampled = [] # Resampled  parts of spectrum
+        finely_sampled = [] # Resampled parts of spectrum
         all_phases, all_confs, all_heights = [], [], [] # Ensemble of predictions, confidences, scale factors
-        current_interval = self.interval # May be modified later on
+        current_interval = self.interval
         angle_bounds = np.arange(self.start_max, self.final_max + 0.1, current_interval)
 
-        # Iteratively expand range in two-theta
-        halt = False # Stopping variable
+        # Iteratively expand scan range
+        halt = False
         for max_angle in angle_bounds:
 
+            # Check stopping criterion
             if halt:
                 continue
 
-            # Set up model
+            # Load trained CNN and set up model
             model_fname = 'Models/Model_%s.h5' % int(max_angle)
             self.model = tf.keras.models.load_model(model_fname, custom_objects={'CustomDropout': CustomDropout}, compile=False)
-            final_conv_ind = 10 # change this value if the cnn architecture is modified
+            final_conv_ind = 10 # Output of final conv layer. Change this value if CNN architecture is modified.
             self.model.layers[final_conv_ind]._name = 'final_conv'
 
-            # If this is not the first scan, then we need to sample higher two-theta
+            # If this is not the first scan, then sample higher two-theta
             if max_angle != self.start_max:
                 last_max = max_angle - current_interval
                 scan_succeeded = self.increase_range(self.spectrum_fname, last_max, max_angle)
@@ -99,7 +109,7 @@ class AdaptiveAnalysis(object):
                 halt = True
                 continue
 
-            # Exit if max angle is incorrect
+            # Exit loop if max angle is incorrect
             xrd = np.loadtxt(self.spectrum_path)
             x = xrd[:, 0]
             actual_max = max(x)
@@ -107,7 +117,7 @@ class AdaptiveAnalysis(object):
                 halt = True
                 continue
 
-            # Perform phase ID and check for backup phases
+            # Perform phase identification and check for backup phases
             spectrum_names, predicted_phases, confidences, backup_phases, scale_factors = spectrum_analysis.main(self.spectrum_dir, self.ref_dir,
                  self.max_phases, self.cutoff, self.min_conf, self.wavelen, self.min_angle, max_angle, parallel=False, model_path=model_fname)
             cmpds, probs, backups, heights = predicted_phases[0], confidences[0], backup_phases[0], scale_factors[0]
@@ -120,7 +130,7 @@ class AdaptiveAnalysis(object):
             # Calculate ensemble averaged predictions
             ensemble_phases, ensemble_confs, ensemble_heights = self.merge_predictions(all_phases, all_confs, all_heights)
 
-            # If all confidences exceed cutoff, don't sample higher angles
+            # If all confidences exceed cutoff, halt measurements
             if min(ensemble_confs) > self.target_conf:
                 halt = True
                 continue
@@ -131,37 +141,42 @@ class AdaptiveAnalysis(object):
             # Re-sample based on phases with low confidence
             for (cmpd, prob, backup) in zip(cmpds, probs, backups):
                 if (prob < self.target_conf) and (backup not in [None, 'None']):
+
                     # First suspected phase
                     ph1_spec = generate_pattern(self.ref_dir, cmpd, max_angle)
                     ph1_cam = gradcam_heatmap(ph1_spec, self.model, 'final_conv')
+
                     # Second suspected phase
                     ph2_spec = generate_pattern(self.ref_dir, backup, max_angle)
                     ph2_cam = gradcam_heatmap(ph2_spec, self.model, 'final_conv')
+
                     # CAM difference between suspected phases
                     cam_diff = abs(np.array(ph1_cam) - np.array(ph2_cam))
+
                     # Identify two-theta where CAM difference exceed cutoff; these will be re-sampled to clarify
                     uncert_bounds = self.get_mismatch_range(cam_diff, bounds=(10, max_angle), diff_cutoff=self.cam_cutoff)
                     for xrange in uncert_bounds:
                         uncert_x += list(np.arange(min(xrange), max(xrange), 0.1))
+
             uncert_x = sorted(list(set(uncert_x)))
             uncert_x = [round(val, 1) for val in uncert_x]
 
-            # Don't re-sample regions that have already been sampled with high precision
+            # Don't resample areas that have already been sampled with high resolution
             uncert_x = sorted(list(set(uncert_x) - set(finely_sampled)))
 
-            # Re-sample any regions in two-theta where CAM difference is high
+            # Resample areas where CAM difference is high
             if len(np.array(uncert_x).flatten()) > 0:
                 self.resample(self.spectrum_fname, uncert_x)
 
-            # Keep track of xranges that have already been sampled with high precision
+            # Keep track of two-theta ranges that have already been sampled with high precision
             finely_sampled += uncert_x
 
-            # Perform phase ID and check for backup phases
+            # Redo phase identification and check for backup phases
             spectrum_names, predicted_phases, confidences, backup_phases, scale_factors = spectrum_analysis.main(self.spectrum_dir, self.ref_dir,
                  self.max_phases, self.cutoff, self.min_conf, self.wavelen, self.min_angle, max_angle, parallel=False, model_path=model_fname)
             cmpds, probs, backups, heights = predicted_phases[0], confidences[0], backup_phases[0], scale_factors[0]
 
-            # Add current predictions to ensemble
+            # Add new predictions to ensemble
             all_phases += cmpds.copy()
             all_confs += probs.copy()
             all_heights += heights.copy()
@@ -169,7 +184,7 @@ class AdaptiveAnalysis(object):
             # Calculate ensemble averaged predictions
             ensemble_phases, ensemble_confs, ensemble_heights = self.merge_predictions(all_phases, all_confs, all_heights)
 
-            # If the minimum confidence is high, don't sample higher angles
+            # If all confidences exceed cutoff, halt measurements
             if len(ensemble_confs) > 0:
                 if min(ensemble_confs) > self.target_conf:
                     halt = True
@@ -186,6 +201,7 @@ class AdaptiveAnalysis(object):
         whereby each phase is weighted by its confidence.
         """
 
+        # Form dictionary for avg predictions
         avg_soln = {}
         for cmpd, cf, ht in zip(preds, confs, heights):
             if cmpd not in avg_soln.keys():
@@ -193,6 +209,7 @@ class AdaptiveAnalysis(object):
             else:
                 avg_soln[cmpd].append((cf, ht))
 
+        # Iterate through each phase and record confidence, height
         unique_preds, avg_confs, avg_heights = [], [], []
         for cmpd in avg_soln.keys():
             unique_preds.append(cmpd)
@@ -201,10 +218,12 @@ class AdaptiveAnalysis(object):
             avg_confs.append(np.mean([pair[0] for pair in avg_soln[cmpd]]))
             avg_heights.append(np.mean([pair[1] for pair in avg_soln[cmpd]]))
 
+        # Sort from high to low confidence
         info = zip(unique_preds, avg_confs, avg_heights)
         info = sorted(info, key=lambda x: x[1])
         info.reverse()
 
+        # Filter results into unique phases and exclude those with low confidence
         unique_cmpds, unique_confs, unique_heights = [], [], []
         for cmpd, cf, ht in info:
             if (len(unique_cmpds) < self.max_phases) and (cf > self.min_conf):
@@ -215,8 +234,10 @@ class AdaptiveAnalysis(object):
         return unique_cmpds, unique_confs, unique_heights
 
     def get_unique_ranges(self, known_ranges, proposed_ranges, merge):
-
-        # Don't re-sample regions that have already been sampled with high precision
+        """
+        Get difference between proposed two-theta ranges
+        and previously resampled ones.
+        """
         for known_x in known_ranges:
             reframed_x = []
             for proposed_x in proposed_ranges:
@@ -241,8 +262,12 @@ class AdaptiveAnalysis(object):
             return proposed_ranges
 
     def resample(self, fname, xvals):
+        """
+        Perform XRD measurements to resamples the
+        range(s) of two-theta proposed in xvals.
+        """
 
-        # Re-format xvals into a set of bounds
+        # Reformat xvals into a set of bounds
         prev_val = 0.0
         xranges = []
         i = -1
@@ -253,7 +278,6 @@ class AdaptiveAnalysis(object):
             else:
                 xranges[i].append(val)
             prev_val = val
-
         bounds = []
         for subset in xranges:
             if max(subset) - min(subset) >= self.min_window:
@@ -264,7 +288,7 @@ class AdaptiveAnalysis(object):
         x_main = data[:, 0]
         y_main = data[:, 1]
 
-        # Re-sample each xrange with high precision
+        # Resample each xrange with high resolution
         for min_max in bounds:
             min_angle = min_max[0]
             max_angle = min_max[1]
@@ -292,6 +316,10 @@ class AdaptiveAnalysis(object):
                 f.write('%s %s\n' % (xval, yval))
 
     def increase_range(self, fname, min_angle, max_angle):
+        """
+        Perform XRD measurement on two-theta
+        from min_angle to max_angle.
+        """
 
         # To avoid precision errors
         max_angle += 1
@@ -309,6 +337,7 @@ class AdaptiveAnalysis(object):
 
         else:
 
+            # Splice spectra together
             x_main, y_main = self.splice_spectra(x_main, y_main, x_new, y_new)
 
             # Write to Spectra
@@ -453,6 +482,7 @@ def generate_pattern(ref_dir, cmpd, max_angle):
 
 def gradcam_heatmap(spectrum, model, last_conv_layer_name, pred_index=None):
     """
+    Calculate the Grad-CAM for a given spectrum.
     Code adapted from https://keras.io/examples/vision/grad_cam/
 
     Args:
@@ -517,7 +547,7 @@ def gradcam_heatmap(spectrum, model, last_conv_layer_name, pred_index=None):
 
 def calc_std_dev(two_theta, tau):
     """
-    calculate standard deviation based on angle (two theta) and domain size (tau)
+    Calculate standard deviation based on angle (two theta) and domain size (tau)
     Args:
         two_theta: angle in two theta space
         tau: domain size in nm

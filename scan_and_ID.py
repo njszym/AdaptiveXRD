@@ -8,11 +8,11 @@ import os
 
 if __name__ == '__main__':
 
-    max_phases = 4 # default: a maximum 4 phases in each mixture
-    cutoff_intensity = 5.0 # default: ID all peaks with I >= 5% maximum spectrum intensity
-    wavelength = 'CuKa' # default: spectra was measured using Cu K_alpha radiation
+    max_phases = 4 # A maximum of 4 phases identified in each mixture
+    cutoff_intensity = 5.0 # Identify all peaks with I >= 5% of the largest peak
+    wavelength = 'CuKa' # Measurements use Cu K_alpha radiation
     temp = 25 # Temperature used during scan (useful for in situ measurements)
-    min_angle = 10.0 # Lower bound on scan range (two-theta)
+    min_angle = 10.0 # Lower bound on scan range (two-theta, degrees)
     start_max = 60.0 # Upper bound on initial range (10-60 degrees is a good starting point)
     final_max = 140.0 # Upper bound on final range (highest possible two-theta)
     interval = 10.0 # How much to increase two-theta range by each iteration
@@ -20,7 +20,7 @@ if __name__ == '__main__':
     min_conf = 10.0 # Minimum confidence (%) included in predictions
     target_conf = 80.0 # Perform measurements until confidence exceeds 80% for all phases
     cam_cutoff = 25.0 # Re-scan two-theta where CAM differences exceed 25%
-    instrument = 'Bruker' # Type of diffractometer
+    instrument = 'Bruker' # Type of diffractometer (others may include 'Aeris' or 'Post hoc')
     existing_file = None # Used for post hoc analysis (spectrum file already exists)
 
     for arg in sys.argv:
@@ -58,11 +58,11 @@ if __name__ == '__main__':
     # Define diffractometer object
     diffrac = oracle.Diffractometer(instrument)
 
-    # Run initial scan
-    prec = 'Low' # Low precision
+    # Run initial scan (fast and low precision)
+    prec = 'Low'
     x, y = diffrac.execute_scan(min_angle, start_max, prec, temp, existing_file)
 
-    # Write data
+    # Write scan data to file
     spectrum_fname = 'ScanData.xy'
     if existing_file != None:
         spectrum_fname = existing_file
@@ -70,7 +70,7 @@ if __name__ == '__main__':
         for (xval, yval) in zip(x, y):
             f.write('%s %s\n' % (xval, yval))
 
-    # Perform phase identification and guide XRD
+    # Perform phase identification and guide XRD measurements
     spec_dir, ref_dir = 'Spectra', 'References'
     adaptive_analyzer = adaptXRD.AdaptiveAnalysis(spec_dir, spectrum_fname, ref_dir, max_phases, cutoff_intensity, wavelength, min_angle,
         start_max, final_max, interval, min_conf, target_conf, cam_cutoff, temp, instrument, min_window)
@@ -81,10 +81,12 @@ if __name__ == '__main__':
     x = xrd[:, 0]
     measured_max = max(x)
 
+    # Inform user of temperature if not at RT
     if temp != 25:
         print('Temperature: %s C' % temp)
 
-    if '--all' not in sys.argv: # By default: only include phases with a confidence > 25%
+    # Print phases with high confidence
+    if '--all' not in sys.argv:
         final_phases, final_confidence, final_heights = [], [], []
         for (ph, cf, ht) in zip(phases, confidences, scale_factors):
             if cf >= 25.0:
@@ -95,7 +97,8 @@ if __name__ == '__main__':
         print('Predicted phases: %s' % final_phases)
         print('Confidence: %s' % final_confidence)
 
-    else: # If --all is specified, print *all* suspected phases
+    # Or if --all is specified, print *all* suspected phases
+    else:
         final_phases = phases.copy()
         final_heights = scale_factors.copy()
         print('Predicted phases: %s' % phase_set)
