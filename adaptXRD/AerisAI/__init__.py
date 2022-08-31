@@ -7,6 +7,7 @@ import os
 
 class Aeris:
 
+    # Replace IP, port, and directory paths with your own info
     def __init__(self, ip='10.0.0.188', port=702, results_dir='/Users/Cederexp/Documents/SharedFolder', working_dir='./Results'):
         self.ip = ip
         self.port = port
@@ -27,6 +28,7 @@ class Aeris:
                     status = output.split('=')[1]
             return status
 
+    # Perform XRD measurement; program must be created beforehand
     def scan(self, loc, sample_id='unknown_sample', program='10-140_2-min'):
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
             s.connect((self.ip, self.port))
@@ -57,6 +59,7 @@ class Aeris:
             print(repr(data))
             time.sleep(5)
 
+    # Load output data from Aeris (xrdml) and convert to xy
     def load_xrdml(self, sample_id):
         xrd_path = '%s/%s.xrdml' % (self.working_dir, sample_id)
         with open(xrd_path, 'r', encoding='utf-8') as file:
@@ -72,6 +75,7 @@ class Aeris:
 
         return angles, intensities
 
+    # Move sample
     def move(initial, target, sample_id='unknown_sample'):
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
             s.connect((self.ip, self.port))
@@ -81,7 +85,7 @@ class Aeris:
             print(repr(data))
             time.sleep(5)
 
-
+# Write XRD data to file
 def write_spectrum(dir, sample_id, angles, intensities):
     filepath = os.path.join(dir, '%s.xy' % sample_id)
     with open(filepath, 'w+') as spec_file:

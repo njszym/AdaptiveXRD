@@ -6,6 +6,10 @@ import os
 
 
 class Diffractometer:
+    """
+    Main class used to interface with different
+    types of diffractometers.
+    """
 
     def __init__(self, instrument_name, results_dir='Results'):
         self.instrument_name = instrument_name
@@ -41,7 +45,7 @@ class Diffractometer:
 
         if self.instrument_name == 'Bruker':
 
-            # Step size set by precision
+            # Use these to set desired resolution
             if prec == 'High':
                 step_size = 0.01 # deg
                 time_per_step = 0.2 # sec
@@ -88,7 +92,7 @@ class Diffractometer:
                 if elapsed_time > timeout:
                     done, failed = True, True
 
-            # If measurement still failed, abort scan
+            # If measurement failed, abort scan
             if failed:
                 print('Measurement failed. No results file detected.')
                 return [None], [None]
@@ -112,7 +116,7 @@ class Diffractometer:
             """
             Aeris scripts must be made manually by XRD MPcreator.
             Therefore, all possible programs should be created
-            beforehand. By default, these should be named like:
+            beforehand. By default, these should be named as:
                 10-80_Low, 40-60_High, etc.
             Where the first two numbers represent the range
             that should be scanned in two-theta, and the

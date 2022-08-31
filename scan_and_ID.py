@@ -58,11 +58,11 @@ if __name__ == '__main__':
     # Define diffractometer object
     diffrac = oracle.Diffractometer(instrument)
 
-    # Run initial scan (fast and low precision)
-    prec = 'Low'
+    # Run a fast initial scan
+    prec = 'Low' # Low precision
     x, y = diffrac.execute_scan(min_angle, start_max, prec, temp, existing_file)
 
-    # Write scan data to file
+    # Write initial scan data to file
     spectrum_fname = 'ScanData.xy'
     if existing_file != None:
         spectrum_fname = existing_file

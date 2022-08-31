@@ -375,10 +375,10 @@ class AdaptiveAnalysis(object):
 
     def merge_spectra(self, x1, y1, x2, y2):
         """
-        Caution: should only be used with spice_spectra.
+        Caution: should only be used with splice_spectra.
             You need to *splice* spectra, not just *merge* them.
-            Otherwise, spectrum won't be smooth if x-values from
-            different scans are overlapping with one another.
+            Otherwise, the spectrum won't be smooth if x-values
+            from different scans overlap with one another.
         """
 
         x = list(x1) + list(x2)
