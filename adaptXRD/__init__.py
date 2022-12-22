@@ -123,6 +123,9 @@ class AdaptiveAnalysis(object):
                  self.max_phases, self.cutoff, self.min_conf, self.wavelen, self.min_angle, max_angle, parallel=False, model_path=model_fname)
             cmpds, probs, backups, heights = predicted_phases[0], confidences[0], backup_phases[0], scale_factors[0]
 
+            # Save for later
+            prior_pred, prior_backup = cmpds.copy(), backups.copy()
+
             # Add current predictions to ensemble
             all_phases += cmpds.copy()
             all_confs += probs.copy()
@@ -176,6 +179,11 @@ class AdaptiveAnalysis(object):
             spectrum_names, predicted_phases, confidences, backup_phases, scale_factors = spectrum_analysis.main(self.spectrum_dir, self.ref_dir,
                  self.max_phases, self.cutoff, self.min_conf, self.wavelen, self.min_angle, max_angle, parallel=False, model_path=model_fname)
             cmpds, probs, backups, heights = predicted_phases[0], confidences[0], backup_phases[0], scale_factors[0]
+
+            # If the newly predicted phases are different from those suspected prior to resampling, raise a warning
+            for new_ph in cmpds:
+                if (new_ph not in prior_pred) and (new_ph not in prior_backup):
+                    print('WARNING: %s is a new phase that was not detected before resampling' % new_ph)
 
             # Add new predictions to ensemble
             all_phases += cmpds.copy()
