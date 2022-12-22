@@ -102,20 +102,20 @@ Each filename should also be specified at runtime by using the ```--existing_fil
 
 AdaptiveXRD can be readily applied to new instrumentation, so long as an interface is accessible. In such cases, the ```adaptXRD/oracle/__init__.py``` should be modified accordingly.
 
-## Customizing scan times
+## Customized scan times
 
-The resolution, and therefore the speed, and XRD scans can be set by the following arguments:
+The resolution, and therefore the speed, of the XRD scans can be set by the following arguments:
 
 ```
 python scan_and_ID.py --initial_step=0.02 --initial_time=0.01 --final_step=0.01 --final_time=0.2
 ```
 
-The values given above are the default values, which generally lead to measurements that take around 3-5 minutes. For shorter or longer measurements, alternative values can be specified. A description of each parameter is given below.
+The values given above are the default values, which generally lead to measurements that take around 3-5 minutes per sample. For shorter or longer measurements, alternative values can be specified. A description of each parameter is given below.
 
 ```initial_step``` is the sampling interval (in degrees) to be used during the initial, low-resolution scan.
 
-```initial_time``` is the time to be scanning each step (in seconds) during the initial, low-resolution scan.
+```initial_time``` is the time that will be spent scanning each step (in seconds) during the initial, low-resolution scan.
 
-```final_step``` is the sampling interval (in degrees) to be used during the adaptive (high-resolution) resampling.
+```final_step``` is the sampling interval (in degrees) to be used during adaptive (high-resolution) resampling.
 
-```final_time``` is the time to be scanning each step (in seconds) during the adaptive (high-resolution) resampling.
+```final_time``` is the time that will be spent scanning each step (in seconds) during adaptive (high-resolution) resampling.
