@@ -41,7 +41,8 @@ class AdaptiveAnalysis(object):
     def __init__(self, spectrum_dir, spectrum_fname, reference_directory, max_phases,
         cutoff_intensity, wavelength, min_angle=10.0, start_max=60.0, final_max=100.0,
         interval=10.0, min_conf=10.0, target_conf=80.0, cam_cutoff=25.0, temp=25,
-        instrument='Bruker', min_window=5.0):
+        instrument='Bruker', min_window=5.0, init_step=0.02, init_time=0.1,
+        final_step=0.01, final_time=0.2):
 
         # Define spectrum path
         self.spectrum_dir = spectrum_dir
@@ -300,7 +301,8 @@ class AdaptiveAnalysis(object):
                     orig_y.append(yv)
             orig_max = max(orig_y)
 
-            x_interp, y_interp = self.diffrac.execute_scan(min_angle, max_angle, 'High', self.temp, fname)
+            x_interp, y_interp = self.diffrac.execute_scan(min_angle, max_angle, 'High', self.temp,
+                fname, init_step, init_time, final_step, final_time)
 
             if None not in x_interp:
 
@@ -330,7 +332,8 @@ class AdaptiveAnalysis(object):
         y_main = data[:, 1]
 
         # Sample higher two-theta and append to original range
-        x_new, y_new = self.diffrac.execute_scan(min_angle, max_angle, 'Low', self.temp, fname)
+        x_new, y_new = self.diffrac.execute_scan(min_angle, max_angle, 'Low', self.temp,
+            fname, init_step, init_time, final_step, final_time)
 
         if None in x_new:
             return False

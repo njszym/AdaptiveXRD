@@ -19,7 +19,7 @@ class Diffractometer:
         known_instruments = ['Bruker', 'Aeris', 'Post Hoc']
         assert self.instrument_name in known_instruments, 'Instrument is not known'
 
-    def execute_scan(self, min_angle, max_angle, prec, temp, spec_fname=None):
+    def execute_scan(self, min_angle, max_angle, prec, temp, spec_fname, init_step, init_time, final_step, final_time):
 
         # High precision = slow scan
         # Low precision = fast scan
@@ -47,11 +47,11 @@ class Diffractometer:
 
             # Use these to set desired resolution
             if prec == 'High':
-                step_size = 0.01 # deg
-                time_per_step = 0.2 # sec
+                step_size = final_step # deg
+                time_per_step = final_time # sec
             if prec == 'Low':
-                step_size = 0.02 # deg
-                time_per_step = 0.1 # sec
+                step_size = init_step # deg
+                time_per_step = init_time # sec
 
             # Expected measurement time
             expec_time = time_per_step*(max_angle - min_angle)/step_size

@@ -22,6 +22,8 @@ if __name__ == '__main__':
     cam_cutoff = 25.0 # Re-scan two-theta where CAM differences exceed 25%
     instrument = 'Bruker' # Type of diffractometer (others may include 'Aeris' or 'Post hoc')
     existing_file = None # Used for post hoc analysis (spectrum file already exists)
+    init_step, final_step = 0.02, 0.1 # Step size (deg) and scan time per step (s) for initial scan
+    init_time, final_time = 0.01, 0.2 # Step size (deg) and scan time per step (s) for final scan (resampling)
 
     for arg in sys.argv:
         if '--max_phases' in arg:
@@ -54,13 +56,22 @@ if __name__ == '__main__':
             instrument = str(arg.split('=')[1])
         if '--existing_file' in arg:
             existing_file = str(arg.split('=')[1])
+        if '--initial_step' in arg:
+            init_step = float(arg.split('=')[1])
+        if '--initial_time' in arg:
+            init_time = float(arg.split('=')[1])
+        if '--final_step' in arg:
+            final_step = float(arg.split('=')[1])
+        if '--final_time' in arg:
+            final_time = float(arg.split('=')[1])
 
     # Define diffractometer object
     diffrac = oracle.Diffractometer(instrument)
 
     # Run a fast initial scan
     prec = 'Low' # Low precision
-    x, y = diffrac.execute_scan(min_angle, start_max, prec, temp, existing_file)
+    x, y = diffrac.execute_scan(min_angle, start_max, prec, temp, existing_file,
+        init_step, init_time, final_step, final_time)
 
     # Write initial scan data to file
     spectrum_fname = 'ScanData.xy'
@@ -72,8 +83,9 @@ if __name__ == '__main__':
 
     # Perform phase identification and guide XRD measurements
     spec_dir, ref_dir = 'Spectra', 'References'
-    adaptive_analyzer = adaptXRD.AdaptiveAnalysis(spec_dir, spectrum_fname, ref_dir, max_phases, cutoff_intensity, wavelength, min_angle,
-        start_max, final_max, interval, min_conf, target_conf, cam_cutoff, temp, instrument, min_window)
+    adaptive_analyzer = adaptXRD.AdaptiveAnalysis(spec_dir, spectrum_fname, ref_dir, max_phases,
+        cutoff_intensity, wavelength, min_angle, start_max, final_max, interval, min_conf, target_conf,
+        cam_cutoff, temp, instrument, min_window, init_step, init_time, final_step, final_time)
     phases, confidences, scale_factors = adaptive_analyzer.main
 
     # Load final angle
