@@ -68,6 +68,10 @@ class AdaptiveAnalysis(object):
         self.min_window = min_window
         self.interval = interval
         self.temp = temp
+        self.init_step = init_step
+        self.init_time = init_time
+        self.final_step = final_step
+        self.final_time = final_time
 
         # Define diffractometer object
         self.diffrac = oracle.Diffractometer(instrument)
@@ -119,8 +123,9 @@ class AdaptiveAnalysis(object):
                 continue
 
             # Perform phase identification and check for backup phases
-            spectrum_names, predicted_phases, confidences, backup_phases, scale_factors = spectrum_analysis.main(self.spectrum_dir, self.ref_dir,
-                 self.max_phases, self.cutoff, self.min_conf, self.wavelen, self.min_angle, max_angle, parallel=False, model_path=model_fname)
+            spectrum_names, predicted_phases, confidences, backup_phases, scale_factors, reduced_spectra = spectrum_analysis.main(
+                self.spectrum_dir, self.ref_dir, self.max_phases, self.cutoff, self.min_conf, self.wavelen, self.min_angle,
+                max_angle, parallel=False, model_path=model_fname)
             cmpds, probs, backups, heights = predicted_phases[0], confidences[0], backup_phases[0], scale_factors[0]
 
             # Save for later
@@ -176,8 +181,9 @@ class AdaptiveAnalysis(object):
             finely_sampled += uncert_x
 
             # Redo phase identification and check for backup phases
-            spectrum_names, predicted_phases, confidences, backup_phases, scale_factors = spectrum_analysis.main(self.spectrum_dir, self.ref_dir,
-                 self.max_phases, self.cutoff, self.min_conf, self.wavelen, self.min_angle, max_angle, parallel=False, model_path=model_fname)
+            spectrum_names, predicted_phases, confidences, backup_phases, scale_factors, reduced_spectra = spectrum_analysis.main(
+                self.spectrum_dir, self.ref_dir, self.max_phases, self.cutoff, self.min_conf, self.wavelen, self.min_angle,
+                max_angle, parallel=False, model_path=model_fname)
             cmpds, probs, backups, heights = predicted_phases[0], confidences[0], backup_phases[0], scale_factors[0]
 
             # If the newly predicted phases are different from those suspected prior to resampling, raise a warning
@@ -310,7 +316,7 @@ class AdaptiveAnalysis(object):
             orig_max = max(orig_y)
 
             x_interp, y_interp = self.diffrac.execute_scan(min_angle, max_angle, 'High', self.temp,
-                fname, init_step, init_time, final_step, final_time)
+                fname, self.init_step, self.init_time, self.final_step, self.final_time)
 
             if None not in x_interp:
 
@@ -341,7 +347,7 @@ class AdaptiveAnalysis(object):
 
         # Sample higher two-theta and append to original range
         x_new, y_new = self.diffrac.execute_scan(min_angle, max_angle, 'Low', self.temp,
-            fname, init_step, init_time, final_step, final_time)
+            fname, self.init_step, self.init_time, self.final_step, self.final_time)
 
         if None in x_new:
             return False
