@@ -81,7 +81,7 @@ if __name__ == '__main__':
 
         # Train, test, and save each CNN
         model_fname = 'Models/Model_%s.h5' % maximum
-        cnn.main(xrd_specs, num_epochs=num_epochs, testing_fraction=0.2, fmodel=model_fname)
+        cnn.main(xrd_specs, num_epochs=num_epochs, testing_fraction=0.2, is_pdf=False, fmodel=model_fname)
 
         print('\n----------------------------------\n')
         print('Model (%s, %s) finished training' % (min_angle, maximum))
