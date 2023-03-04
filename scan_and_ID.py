@@ -17,8 +17,8 @@ if __name__ == '__main__':
     final_max = 140.0 # Upper bound on final range (highest possible two-theta)
     interval = 10.0 # How much to increase two-theta range by each iteration
     min_window = 5.0 # Minimum range of angles that are scanned at each iteration
-    min_conf = 10.0 # Minimum confidence (%) included in predictions
-    target_conf = 80.0 # Perform measurements until confidence exceeds 80% for all phases
+    min_conf = 10.0 # Minimum confidence (%) required to consider a phase for resampling
+    target_conf = 50.0 # Perform measurements until confidence exceeds 50% for all phases
     cam_cutoff = 25.0 # Re-scan two-theta where CAM differences exceed 25%
     instrument = 'Bruker' # Type of diffractometer (others may include 'Aeris' or 'Post hoc')
     existing_file = None # Used for post hoc analysis (spectrum file already exists)
@@ -101,7 +101,7 @@ if __name__ == '__main__':
     if '--all' not in sys.argv:
         final_phases, final_confidence, final_heights = [], [], []
         for (ph, cf, ht) in zip(phases, confidences, scale_factors):
-            if cf >= 25.0:
+            if cf >= target_conf:
                 final_phases.append(ph)
                 final_confidence.append(cf)
                 final_heights.append(ht)
