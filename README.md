@@ -119,3 +119,22 @@ The values given above are the default values, which generally lead to measureme
 ```final_step``` is the sampling interval (in degrees) to be used during adaptive (high-resolution) resampling.
 
 ```final_time``` is the time that will be spent scanning each step (in seconds) during adaptive (high-resolution) resampling.
+
+## Running a simulated example
+
+After the installation has been completed, the user may run an example on simulated XRD data using pre-trained models in the Li-Ti-P-O chemical space. To do this, naviate to the ```Example``` folder and run the following command:
+
+```
+python scan_and_ID.py --min_angle=10.0 --start_max=60.0 --final_max=80.0 --interval=10.0 --instrument='Post Hoc' --existing_file='ZrO2_14+Li2ZrO3_15+LiOH_129' --plot --raw_spec
+```
+
+If the package was installed properly, this should yield the following predictions and plot:
+
+```
+Predicted phases: ['LiOH_129', 'ZrO2_14', 'Li2ZrO3_15']
+Confidence: [99.0, 98.5, 98.0]
+```
+
+![sample](./Example/sample-image.png)
+
+This shows an accurate prediction on a three-phase mixture, which is enabled by the resampling of peaks in the range of 18-32 degrees.

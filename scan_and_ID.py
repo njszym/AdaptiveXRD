@@ -24,6 +24,7 @@ if __name__ == '__main__':
     existing_file = None # Used for post hoc analysis (spectrum file already exists)
     init_step, final_step = 0.02, 0.1 # Step size (deg) and scan time per step (s) for initial scan
     init_time, final_time = 0.01, 0.2 # Step size (deg) and scan time per step (s) for final scan (resampling)
+    raw = False
 
     for arg in sys.argv:
         if '--max_phases' in arg:
@@ -64,6 +65,8 @@ if __name__ == '__main__':
             final_step = float(arg.split('=')[1])
         if '--final_time' in arg:
             final_time = float(arg.split('=')[1])
+        if '--raw_spec' in arg:
+            raw = True
 
     # Define diffractometer object
     diffrac = oracle.Diffractometer(instrument)
@@ -127,7 +130,7 @@ if __name__ == '__main__':
 
         # Plot measured spectrum with line profiles of predicted phases
         visualizer.main('Spectra', spectrum_fname, final_phasenames, final_heights, None,
-            min_angle, measured_max, wavelength, save)
+            min_angle, measured_max, wavelength, save, raw=raw)
 
     if ('--weights' in sys.argv) and (phases != 'None'):
 
