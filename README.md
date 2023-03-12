@@ -2,7 +2,7 @@
 
 A package designed to integrate automated phase identification with in-line guidance of XRD measurements.
 
-All simulated and experimental data used for testing can be found in [Figshare](https://figshare.com/s/71f552f43f0d982f888d).
+The corresponding manuscript can be found at [npj Computational Materials](https://doi.org/10.1038/s41524-023-00984-y). All simulated and experimental data used for testing can be found in [Figshare](https://figshare.com/s/71f552f43f0d982f888d).
 
 ## Installation
 
